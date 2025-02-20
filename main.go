@@ -10,13 +10,23 @@ func main() {
 	const filepathRoot = "."
 
 	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir(filepathRoot)))
-
+	dfltHandler := http.FileServer(http.Dir(filepathRoot))
+	mux.Handle("/app/", http.StripPrefix("/app", dfltHandler))
+	mux.HandleFunc("/healthz", handlerReadiness)
 	srv := &http.Server{
 		Addr: ":" + port,
 		Handler: mux,
 	}
 
-	log.Printf("Serving files from %s on port: %s\n", filepathRoot, port)
+	log.Printf("Serving on port: %s\n", port)
 	log.Fatal(srv.ListenAndServe())
+
+}
+
+func handlerReadiness(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(200)
+	bodyStr := "OK"
+	bodyBytes := []byte(bodyStr)
+	w.Write(bodyBytes)
 }
