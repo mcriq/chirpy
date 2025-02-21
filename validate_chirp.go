@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"slices"
+	"strings"
 )
 
+var profaneWords = []string{"kerfuffle", "sharbert", "fornax"}
 
 
 func handlerValidateChirp(w http.ResponseWriter, r *http.Request){
@@ -27,7 +30,7 @@ func handlerValidateChirp(w http.ResponseWriter, r *http.Request){
     }
 
 	type valid struct {
-		Valid bool `json:"valid"`
+		CleanedBody string `json:"cleaned_body"`
 	}
 
 	if len(params.Body) > 140 {
@@ -38,9 +41,11 @@ func handlerValidateChirp(w http.ResponseWriter, r *http.Request){
 			return
 			}
 		return
-	} 
-		
-	err = writeJSON(w, http.StatusOK, valid{Valid: true})
+	}
+	
+	newBodyString := replaceProfanity(params.Body)
+
+	err = writeJSON(w, http.StatusOK, valid{CleanedBody: newBodyString})
 	if err != nil {
 		log.Printf("Error marshalling JSON: %s", err)
 		w.WriteHeader(500)
@@ -52,4 +57,14 @@ func writeJSON[T any](w http.ResponseWriter, status int, v T) error {
     w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(status)
     return json.NewEncoder(w).Encode(v)
+}
+
+func replaceProfanity(text string) string {
+	bodySlice := strings.Split(text, " ")
+	for i, word := range bodySlice {
+		if slices.Contains(profaneWords, strings.ToLower(word)) {
+			bodySlice[i] = "****"
+		}
+	}
+	return strings.Join(bodySlice, " ")
 }
