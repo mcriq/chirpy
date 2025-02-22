@@ -10,3 +10,10 @@ RETURNING *;
 
 -- name: DeleteUsers :exec
 DELETE FROM users;
+
+-- name: UserExists :one
+SELECT EXISTS (
+    SELECT 1
+    FROM users
+    WHERE id = $1
+);
