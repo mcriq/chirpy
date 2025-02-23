@@ -22,7 +22,7 @@ type Chirp struct {
 	UserID    uuid.UUID `json:"user_id"`
 }
 
-func (cfg *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
 		Body string `json:"body"`
 		UserID uuid.UUID `json:"user_id"`
@@ -102,4 +102,13 @@ func replaceProfanity(text string) string {
 		}
 	}
 	return strings.Join(bodySlice, " ")
+}
+
+func safeWriteJSON(w http.ResponseWriter, statusCode int, data interface{}) error {
+    err := writeJSON(w, statusCode, data)
+    if err != nil {
+        log.Printf("unable to parse json: %v", err)
+        w.WriteHeader(http.StatusInternalServerError)
+    }
+    return err
 }
