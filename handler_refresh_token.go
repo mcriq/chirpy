@@ -47,3 +47,36 @@ func (cfg *apiConfig) handlerRefresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 }
+
+func (cfg *apiConfig) handlerRevoke(w http.ResponseWriter, r *http.Request) {
+	refrToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	refreshToken, err := cfg.dbQueries.GetRefreshTokenByToken(r.Context(), refrToken)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "invalid or expired refresh token",
+			})
+			return
+		}
+		log.Printf("Error retrieving refresh token: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err = cfg.dbQueries.RevokeRefreshToken(r.Context(), refreshToken.Token)
+	if err != nil {
+		log.Printf("unable to revoke token: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNoContent)
+	log.Printf("Successfully revoked refresh token")
+}
