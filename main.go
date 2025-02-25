@@ -13,8 +13,9 @@ import (
 )
 type apiConfig struct {
 	fileserverHits atomic.Int32
-	dbQueries *database.Queries
-	platform string
+	dbQueries      *database.Queries
+	platform       string
+	secret         string
 }
 
 func main() {
@@ -24,6 +25,7 @@ func main() {
 	godotenv.Load()
 	dbURL := os.Getenv("DB_URL")
 	platform := os.Getenv("PLATFORM")
+	secret := os.Getenv("SECRET")
 
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
@@ -35,6 +37,7 @@ func main() {
 		fileserverHits: atomic.Int32{},
 		dbQueries: dbQueries,
 		platform: platform,
+		secret: secret,
 	}
 
 	mux := http.NewServeMux()

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/mcriq/chirpy/internal/auth"
 	"github.com/mcriq/chirpy/internal/database"
 )
 
@@ -25,24 +26,26 @@ type Chirp struct {
 func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
 		Body string `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
 	}
-	decoder := json.NewDecoder(r.Body)
-	requestParams := requestBody{}
-	err := decoder.Decode(&requestParams)
+
+	token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
-		log.Printf("Error decoding chirp parameters: %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	if userExists, err := cfg.dbQueries.UserExists(r.Context(), requestParams.UserID); err != nil {
-		log.Printf("Error checking if user exists (userID: %s): %s", requestParams.UserID, err)
-		w.WriteHeader(http.StatusInternalServerError)
+	userID, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
 		return
-	} else if !userExists {
-		log.Printf("User does not exist")
-		w.WriteHeader(http.StatusNotFound)
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	requestParams := requestBody{}
+	err = decoder.Decode(&requestParams)
+	if err != nil {
+		log.Printf("Error decoding chirp parameters: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -64,7 +67,7 @@ func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Request
 	
 	chirp, err := cfg.dbQueries.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body: requestParams.Body,
-		UserID: requestParams.UserID,
+		UserID: userID,
 	})
 	if err != nil {
 		log.Printf("unable to create chirp: %v", err)

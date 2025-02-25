@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/mcriq/chirpy/internal/auth"
 )
@@ -14,7 +15,9 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type userLoginParams struct {
 		Email string `json:"email"`
 		Password string `json:"password"`
+		ExpiresInSeconds *int `json:"expires_in_seconds,omitempty"`
 	}
+
 	
 	decoder := json.NewDecoder(r.Body)
 	params := userLoginParams{}
@@ -40,6 +43,14 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	expiresIn := time.Hour
+	if params.ExpiresInSeconds != nil {
+		duration := time.Duration(*params.ExpiresInSeconds) * time.Second
+		if duration < time.Hour {
+			expiresIn = duration
+		}
+	}
+	
 	err = auth.CheckPasswordHash(params.Password, user.HashedPassword)
 	if err != nil {
 		log.Printf("Invalid password for user %s: %s", user.Email, err)
@@ -50,11 +61,20 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	token, err := auth.MakeJWT(user.ID, cfg.secret, expiresIn)
+	if err != nil {
+		log.Printf("Error creating JWT: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+
 	userResp := User{
 		ID: user.ID,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email: user.Email,
+		Token: token,
 	}
 
 	err = writeJSON(w, http.StatusOK, userResp)
