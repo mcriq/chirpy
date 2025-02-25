@@ -8,17 +8,16 @@ import (
 	"time"
 
 	"github.com/mcriq/chirpy/internal/auth"
+	"github.com/mcriq/chirpy/internal/database"
 )
 
 
 func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type userLoginParams struct {
-		Email string `json:"email"`
-		Password string `json:"password"`
-		ExpiresInSeconds *int `json:"expires_in_seconds,omitempty"`
+		Email            string `json:"email"`
+		Password         string `json:"password"`
 	}
 
-	
 	decoder := json.NewDecoder(r.Body)
 	params := userLoginParams{}
 	err := decoder.Decode(&params)
@@ -44,12 +43,6 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	expiresIn := time.Hour
-	if params.ExpiresInSeconds != nil {
-		duration := time.Duration(*params.ExpiresInSeconds) * time.Second
-		if duration < time.Hour {
-			expiresIn = duration
-		}
-	}
 	
 	err = auth.CheckPasswordHash(params.Password, user.HashedPassword)
 	if err != nil {
@@ -68,6 +61,19 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	refrToken, err := auth.MakeRefreshToken()
+	if err != nil {
+		log.Printf("Error creating refresh token: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	
+	_, err = cfg.dbQueries.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{Token: refrToken, UserID: user.ID})
+	if err != nil {
+		log.Printf("Error creating refresh token record: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	userResp := User{
 		ID: user.ID,
@@ -75,6 +81,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: user.UpdatedAt,
 		Email: user.Email,
 		Token: token,
+		RefreshToken: refrToken,
 	}
 
 	err = writeJSON(w, http.StatusOK, userResp)
