@@ -43,7 +43,7 @@ func (cfg *apiConfig) handlerChirpsDelete(w http.ResponseWriter, r *http.Request
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		log.Printf("error getting chirp", err)
+		log.Printf("error getting chirp: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
