@@ -82,6 +82,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		Email: user.Email,
 		Token: token,
 		RefreshToken: refrToken,
+		IsChirpyRed: user.IsChirpyRed,
 	}
 
 	err = writeJSON(w, http.StatusOK, userResp)
