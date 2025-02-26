@@ -51,6 +51,48 @@ func (cfg *apiConfig) handlerChirpsGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	authorID := r.URL.Query().Get("author_id")
+
+	// if authorID query param exists
+	if len(authorID) != 0 {
+		parsedAuthorID, err := uuid.Parse(authorID)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		chirpsByAuth, err := cfg.dbQueries.GetChirpsByAuthor(r.Context(), parsedAuthorID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				log.Printf("no chirps found")
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			log.Printf("unable to get chirps %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		chirpResponses := []ChirpResponse{}
+		for _, chirp := range chirpsByAuth {
+			chirpResponse := ChirpResponse{
+				ID: chirp.ID.String(),
+				CreatedAt: chirp.CreatedAt,
+				UpdatedAt: chirp.UpdatedAt,
+				Body: chirp.Body,
+				UserID: chirp.UserID.String(),
+			}
+			chirpResponses = append(chirpResponses, chirpResponse)
+		}
+
+		err = writeJSON(w, http.StatusOK, chirpResponses)
+		if err != nil {
+			log.Printf("unable to parse json: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
 	chirps, err := cfg.dbQueries.GetChirps(r.Context())
 	if err != nil {
 		log.Printf("unable to fetch chirps")

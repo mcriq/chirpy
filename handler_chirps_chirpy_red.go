@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/mcriq/chirpy/internal/auth"
 )
 
 func (cfg *apiConfig) handlerChirpyRed(w http.ResponseWriter, r *http.Request) {
@@ -17,9 +18,22 @@ func (cfg *apiConfig) handlerChirpyRed(w http.ResponseWriter, r *http.Request) {
 		Data data `json:"data"`
 	}
 
+	key, err := auth.GetAPIKey(r.Header)
+	if err != nil {
+		log.Printf("Unable to retreive api key: %s", err)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	if key != cfg.polkaKey {
+		log.Printf("Unable to verify apikey")
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	decoder := json.NewDecoder(r.Body)
 	requestParams := requestBody{}
-	err := decoder.Decode(&requestParams)
+	err = decoder.Decode(&requestParams)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
